@@ -38,7 +38,7 @@ expected_answers = {
     "symptoms_start": "Time indication (days, weeks, months, years ago)",
     "symptoms_severity": "Number between 0-10 or descriptive severity",
     "symptom_triggers": "Any factors that worsen or better symptoms",
-    "symptom_impact": "Description of how symptoms affect",
+    "symptom_impact": "How it affects you",
     "past_episodes": "Yes/No response about previous experiences",
     "mental_health_history": "Yes/No response about prior diagnoses",
     "hospitalizations": "Yes/No response about hospitalizations"
@@ -479,3 +479,4 @@ async def get_session(session_id: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
