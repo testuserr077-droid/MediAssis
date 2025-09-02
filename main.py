@@ -26,23 +26,92 @@ sessions = {}
 
 # Expected answer types for validation
 expected_answers = {
-    "state": "Any valid US state name (full name or abbreviation)",
-    "dob": "Date of birth in any valid format",
-    "emergency": "YES or NO(indicating an emergency)",
-    "suicide_risk_1": "YES or NO(indicating current suicidal thoughts)",
-    "suicide_risk_2": "YES or NO(indicating specific plan)",
-    "suicide_risk_3": "YES or NO(indicating recent attempts)",
-    "consent": "Yes, Accept, or similar affirmative response",
-    "complaint": "Any description of mental health concerns",
-    "goal": "Any reasonable treatment goal",
-    "symptoms_start": "Time indication (days, weeks, months, years ago)",
-    "symptoms_severity": "Number between 0-10 or descriptive severity",
-    "symptom_triggers": "Any factors that worsen or better symptoms",
-    "symptom_impact": "How it affects you",
-    "past_episodes": "Yes/No response about previous experiences",
-    "mental_health_history": "Yes/No response about prior diagnoses",
-    "hospitalizations": "Yes/No response about hospitalizations"
+    "state": {
+        "question": "What US state do you reside in?",
+        "expected_format": "Valid US state name (full or abbreviation)",
+        "examples": ["California", "CA", "New York", "NY"]
+    },
+    "dob": {
+        "question": "What is your date of birth?",
+        "expected_format": "Date of birth in valid format",
+        "examples": ["01/23/1990", "1990-01-23", "23 Jan 1990"]
+    },
+    "emergency": {
+        "question": "Is this an emergency or are you in immediate danger?",
+        "expected_format": "YES or NO",
+        "examples": ["YES", "NO"]
+    },
+    "suicide_risk_1": {
+        "question": "Are you having thoughts of killing yourself right now?",
+        "expected_format": "YES or NO",
+        "examples": ["YES", "NO"]
+    },
+    "suicide_risk_2": {
+        "question": "Do you have a specific plan or the means to do so?",
+        "expected_format": "YES or NO",
+        "examples": ["YES", "NO"]
+    },
+    "suicide_risk_3": {
+        "question": "Have you attempted suicide in the past month?",
+        "expected_format": "YES or NO",
+        "examples": ["YES", "NO"]
+    },
+    "consent": {
+        "question": "Do you agree to an AI-assisted intake and recording?",
+        "expected_format": "Accept or Decline",
+        "examples": ["Accept", "Yes", "Decline", "No"]
+    },
+    "complaint": {
+        "question": "What brings you in today?",
+        "expected_format": "Free text",
+        "examples": ["I feel anxious all the time.", "I can’t sleep well."]
+    },
+    "goal": {
+        "question": "What’s your top goal for today’s visit?",
+        "expected_format": "Free text",
+        "examples": ["To manage my anxiety.", "To improve my sleep."]
+    },
+    "symptoms_start": {
+        "question": "When did these concerns start?",
+        "expected_format": "Time duration",
+        "examples": ["2 weeks ago", "6 months ago", "years ago"]
+    },
+    "symptoms_severity": {
+        "question": "How severe are your symptoms (0–10)?",
+        "expected_format": "Number 0–10",
+        "examples": ["3", "7", "10"]
+    },
+    "symptom_triggers": {
+        "question": "What makes your symptoms better or worse?",
+        "expected_format": "Free text",
+        "examples": ["Stress makes it worse.", "Exercise helps."]
+    },
+    "symptom_impact": {
+        "question": "How do symptoms affect work, school, sleep, relationships?",
+        "expected_format": "Free text (must include at least one domain)",
+        "examples": [
+            "It affects my sleep.",
+            "I can’t focus in school.",
+            "It causes problems at work."
+        ]
+    },
+    "past_episodes": {
+        "question": "Have you had similar episodes before?",
+        "expected_format": "YES/NO + details",
+        "examples": ["Yes, during college.", "No"]
+    },
+    "mental_health_history": {
+        "question": "Have you been diagnosed with a mental health condition before?",
+        "expected_format": "YES/NO + optional details",
+        "examples": ["Yes, depression.", "No"]
+    },
+    "hospitalizations": {
+        "question": "Any hospitalizations, ER visits, or suicide attempts?",
+        "expected_format": "YES/NO + details",
+        "examples": ["Yes, ER visit last year.", "No"]
+    }
 }
+
 
 # Question list to iterate through
 questions = [
@@ -479,4 +548,5 @@ async def get_session(session_id: str):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
