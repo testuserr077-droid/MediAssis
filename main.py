@@ -145,15 +145,17 @@ async def detect_suicide_risk(user_response: str, question_key: str = None) -> b
         else:
             prompt = f"""
             User Response: "{user_response}"
+            Determine if the response contains a *direct reference* to suicidal thoughts, intent, or actions.
             
-            Does this response contain any indication of:
-            - Current suicidal thoughts.
-            - Plans to harm themselves.
-            - Recent suicide attempts.
-            - Emergency situation related to suicide.
-            - Expressions of wanting to die or kill themselves
-            - Intent to commit suicide
+            Criteria for "RISK":
+            - Explicit mention of wanting to die, kill oneself, or commit suicide.
+            - Mention of planning or attempting suicide.
+            - Mention of self-harm in a way connected to ending life.
             
+            Criteria for "SAFE":
+            - General sadness, depression, anxiety, stress, or health problems without suicide mentioned.
+            - Physical complaints like not sleeping, not eating, fatigue, or illness.
+            - Expressions of negative emotions not tied to suicide.
             Respond with "RISK" if suicide risk detected, "SAFE" if no risk indicators found.
             """
         response = client.chat.completions.create(
@@ -586,4 +588,5 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
 
