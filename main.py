@@ -150,7 +150,7 @@ async def detect_suicide_risk(user_response: str, question_key: str = None) -> b
             - Current suicidal thoughts.
             - Plans to harm themselves.
             - Recent suicide attempts.
-            - Immediate danger or emergency situation related to suicide.
+            - Emergency situation related to suicide.
             - Expressions of wanting to die or kill themselves
             - Intent to commit suicide
             
