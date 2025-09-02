@@ -117,7 +117,7 @@ questions = [
     ("What brings you in today?", "complaint"),
     ("What's your top goal for today's visit?", "goal"),
     ("When did these concerns start?", "symptoms_start"),
-    ("How severe are your symptoms today(0–10)?", "symptoms_severity"),
+    ("How severe are your symptoms today(0-10)?", "symptoms_severity"),
     ("What makes them better or worse?", "symptom_triggers"),
     ("How do they affect work/school, relationships, sleep, appetite?", "symptom_impact"),
     ("Have you had similar episodes before? What helped then?", "past_episodes"),
@@ -586,3 +586,4 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
+
