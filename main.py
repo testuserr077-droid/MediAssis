@@ -71,14 +71,14 @@ expected_answers = {
         "examples": ["2 weeks ago", "6 months ago", "years ago"]
     },
     "symptoms_severity": {
-        "question": "How severe are your symptoms (0–10)?",
-        "expected_format": "Number 0–10",
+        "question": "How severe are your symptoms (0-10)?",
+        "expected_format": "Number 0-10",
         "examples": ["3", "7", "10"]
     },
     "symptom_triggers": {
-        "question": "What makes your symptoms better or worse?",
+        "question": "What makes your symptoms better/good or worse/bad?",
         "expected_format": "Free text",
-        "examples": ["Stress makes it worse.", "Exercise helps."]
+        "examples": ["Stress makes it worse.","food helps", "Exercise helps."]
     },
     "symptom_impact": {
         "question": "How do symptoms affect work, school, sleep, relationships?",
@@ -145,17 +145,15 @@ async def detect_suicide_risk(user_response: str, question_key: str = None) -> b
         else:
             prompt = f"""
             User Response: "{user_response}"
-            Determine if the response contains a *direct reference* to suicidal thoughts, intent, or actions.
             
-            Criteria for "RISK":
-            - Explicit mention of wanting to die, kill oneself, or commit suicide.
-            - Mention of planning or attempting suicide.
-            - Mention of self-harm in a way connected to ending life.
+            Does this response contain any indication of:
+            - Current suicidal thoughts.
+            - Plans to harm themselves.
+            - Recent suicide attempts.
+            - Emergency situation related to suicide.
+            - Expressions of wanting to die or kill themselves
+            - Intent to commit suicide
             
-            Criteria for "SAFE":
-            - General sadness, depression, anxiety, stress, or health problems without suicide mentioned.
-            - Physical complaints like not sleeping, not eating, fatigue, or illness.
-            - Expressions of negative emotions not tied to suicide.
             Respond with "RISK" if suicide risk detected, "SAFE" if no risk indicators found.
             """
         response = client.chat.completions.create(
@@ -178,7 +176,7 @@ async def detect_suicide_risk(user_response: str, question_key: str = None) -> b
 def get_emergency_message():
     """Return emergency intervention message in standard format"""
     return {
-        "message": "🚨 IMMEDIATE SAFETY CONCERN DETECTED 🚨. National Suicide Prevention Lifeline: 988 or 1-800-273-8255. Survey has been paused for your safety. Please seek immediate help."
+        "message": "IMMEDIATE SAFETY CONCERN DETECTED. National Suicide Prevention Lifeline: 988 or 1-800-273-8255. Survey has been paused for your safety. Please seek immediate help."
     }
 
 async def validate_current_answer_from_multi_response(user_response: str, current_question: str, current_key: str):
@@ -191,7 +189,7 @@ async def validate_current_answer_from_multi_response(user_response: str, curren
         Extract ONLY the part of the user's response that answers the current question.
         If the response contains multiple answers, isolate just the relevant part.
         
-        Return only the extracted answer for the current question, nothing else.
+        Return only the extracted answer for the current question as text, nothing else.
         """
         response = client.chat.completions.create(
             model="gpt-4o-mini",
@@ -200,13 +198,13 @@ async def validate_current_answer_from_multi_response(user_response: str, curren
             temperature=0.3
         )
         
-        current_answer = response.choices[0].message.content.strip()
+        current_answer = str(response.choices[0].message.content.strip())  # Ensure string
         print(f"Current answer extracted for {current_key}: {current_answer}")
         return current_answer
         
     except Exception as e:
         print(f"Error extracting current answer: {e}")
-        return user_response
+        return str(user_response)  # Ensure string
 
 async def extract_and_validate_multiple_answers(user_response: str, current_question_key: str, current_question_index: int) -> Dict[str, str]:
     """Extract multiple answers and validate each one individually"""
@@ -228,9 +226,10 @@ async def extract_and_validate_multiple_answers(user_response: str, current_ques
         
         Extract answers for future questions that the user mentioned in their response.
         For each answer found, provide the exact text that answers that specific question.
+        IMPORTANT: Return all values as strings, even if they are numbers.
         
-        Return JSON format:
-        {{"question_key": "exact_answer_text"}}
+        Return JSON format with ALL VALUES AS STRINGS:
+        {{"question_key": "exact_answer_text_as_string"}}
         
         If no future answers found, return: {{}}
         """
@@ -255,6 +254,9 @@ async def extract_and_validate_multiple_answers(user_response: str, current_ques
         validated_answers = {}
         
         for question_key, extracted_answer in extracted_answers.items():
+            # Ensure the extracted answer is always a string, even if JSON parsed it as int
+            extracted_answer = str(extracted_answer)
+            
             question_text = None
             for q_text, q_key in questions:
                 if q_key == question_key:
@@ -281,7 +283,7 @@ async def extract_and_validate_multiple_answers(user_response: str, current_ques
                 is_valid = 'yes' in validation_response.choices[0].message.content.lower()
                 
                 if is_valid:
-                    validated_answers[question_key] = extracted_answer
+                    validated_answers[question_key] = str(extracted_answer)  # Ensure string
                     print(f"✓ Validated answer for {question_key}: {extracted_answer}")
                 else:
                     print(f"✗ Invalid answer for {question_key}: {extracted_answer}")
@@ -354,12 +356,13 @@ async def websocket_endpoint(websocket: WebSocket):
         "confirmation_pending": None,
         "greeting_done": False,
         "emergency_triggered": False,
+        "retry_count": 0,  # NEW: Track retries for current question
         "websocket": websocket
     }
     
     # Send initial greeting
     await websocket.send_text(json.dumps({
-        "message": "Hi! Let's start with some questions. Please respond with 'Hi' to begin."
+        "message": "Welcome to the medical AI. If you want to start the screening, please say yes."
     }))
     
     try:
@@ -375,6 +378,9 @@ async def websocket_endpoint(websocket: WebSocket):
                 except json.JSONDecodeError:
                     user_answer = data
                 
+                # Ensure user_answer is always a string
+                user_answer = str(user_answer).strip()
+                
                 session = sessions[session_id]
                 current_question_index = session["question_index"]
                 
@@ -385,14 +391,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # Handle greeting
                 if not session["greeting_done"]:
-                    if user_answer.lower().strip() in ["hi", "hello", "start"]:
+                    if user_answer.lower().strip() in ["yes", "y", "yeah", "sure", "ok", "okay", "start"]:
                         session["greeting_done"] = True
                         question, key = questions[0]
                         await websocket.send_text(json.dumps({"message": question}))
                         continue
                     else:
                         await websocket.send_text(json.dumps({
-                            "message": "Please type 'Hi' to begin the survey."
+                            "message": "Please say 'yes' to begin the survey."
                         }))
                         continue
                 
@@ -410,7 +416,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     if user_answer.lower() in ["yes", "y", "correct", "that's right", "right"]:
                         # User confirmed the extracted answer
                         question, key = questions[current_question_index]
-                        confirmed_answer = session["extracted_answers"][key]
+                        confirmed_answer = str(session["extracted_answers"][key])  # Ensure string
                         
                         # Suicide risk check for confirmed answer
                         suicide_risk_detected = await detect_suicide_risk(confirmed_answer, key)
@@ -420,10 +426,11 @@ async def websocket_endpoint(websocket: WebSocket):
                             await websocket.send_text(json.dumps(get_emergency_message()))
                             continue
                         
-                        session["answers"][key] = session["extracted_answers"][key]
+                        session["answers"][key] = str(session["extracted_answers"][key])  # Ensure string
                         del session["extracted_answers"][confirmation_key]
                         session["confirmation_pending"] = None
                         session["question_index"] += 1
+                        session["retry_count"] = 0  # Reset retry count for next question
                         
                         # Move to next question
                         if session["question_index"] < len(questions):
@@ -444,25 +451,50 @@ async def websocket_endpoint(websocket: WebSocket):
                         
                         question, key = questions[current_question_index]
                         
-                        # Validate the new answer
+                        # NEW: Validate the new answer with retry logic
                         is_valid = await verify_answer(question, user_answer, expected_answers[key])
                         
                         if not is_valid:
-                            await websocket.send_text(json.dumps({
-                                "message": f"The answer for '{question}' seems inappropriate. Please provide a clearer answer."
-                            }))
-                            continue
+                            session["retry_count"] += 1
+                            if session["retry_count"] < 2:
+                                # First retry
+                                await websocket.send_text(json.dumps({
+                                    "message": f"I didn't quite get that. Could you please answer the question: {question}"
+                                }))
+                                continue
+                            else:
+                                # After 2 retries, skip the question
+                                # await websocket.send_text(json.dumps({
+                                #     "message": f"Skipping the question for now. Let's move to the next one."
+                                # }))
+                                session["answers"][key] = "SKIPPED"
+                                session["question_index"] += 1
+                                session["retry_count"] = 0  # Reset retry count
+                                
+                                if session["question_index"] < len(questions):
+                                    response = await get_next_question(session)
+                                    await websocket.send_text(json.dumps(response))
+                                else:
+                                    await websocket.send_text(json.dumps({
+                                        "message": "Survey completed successfully!",
+                                        "answers": session["answers"],
+                                        "completed": True
+                                    }))
+                                continue
+                        
+                        # Answer is valid, proceed normally
+                        session["retry_count"] = 0  # Reset retry count
                         
                         # Suicide risk check for new answer
                         suicide_risk_detected = await detect_suicide_risk(user_answer, key)
                         if suicide_risk_detected:
-                            session["answers"][key] = user_answer
+                            session["answers"][key] = str(user_answer)  # Ensure string
                             session["emergency_triggered"] = True
                             await websocket.send_text(json.dumps(get_emergency_message()))
                             continue
                         
                         # Save the new answer and continue
-                        session["answers"][key] = user_answer
+                        session["answers"][key] = str(user_answer)  # Ensure string
                         session["question_index"] += 1
                         
                         # Extract additional answers
@@ -472,7 +504,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         if validated_future_answers:
                             # Check extracted answers for suicide risk
                             for future_key, future_answer in validated_future_answers.items():
-                                suicide_risk_in_future = await detect_suicide_risk(future_answer, future_key)
+                                suicide_risk_in_future = await detect_suicide_risk(str(future_answer), future_key)
                                 if suicide_risk_in_future:
                                     session["emergency_triggered"] = True
                                     await websocket.send_text(json.dumps(get_emergency_message()))
@@ -507,7 +539,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 
                 # Check for pre-extracted answer
                 if key in session["extracted_answers"]:
-                    extracted_answer = session["extracted_answers"][key]
+                    extracted_answer = str(session["extracted_answers"][key])  # Ensure string
                     session["confirmation_pending"] = key
                     await websocket.send_text(json.dumps({
                         "message": f"I found that you previously mentioned: '{extracted_answer}' for the question '{question}'. Is this correct? Reply 'Yes' to confirm or provide a new answer."
@@ -519,25 +551,50 @@ async def websocket_endpoint(websocket: WebSocket):
                     user_answer, question, key
                 )
                 
-                # Validate the current answer
+                # NEW: Validate the current answer with retry logic
                 is_current_valid = await verify_answer(question, current_answer, expected_answers[key])
                 
                 if not is_current_valid:
-                    await websocket.send_text(json.dumps({
-                        "message": f"The answer for '{question}' seems inappropriate. Please provide a clearer answer for this specific question."
-                    }))
-                    continue
+                    session["retry_count"] += 1
+                    if session["retry_count"] < 2:
+                        # First retry
+                        await websocket.send_text(json.dumps({
+                            "message": f"I didn't quite get that. Could you please answer the question: {question}"
+                        }))
+                        continue
+                    else:
+                        # After 2 retries, skip the question
+                        # await websocket.send_text(json.dumps({
+                        #     "message": f"Skipping the question for now. Let's move to the next one."
+                        # }))
+                        session["answers"][key] = "SKIPPED"
+                        session["question_index"] += 1
+                        session["retry_count"] = 0  # Reset retry count
+                        
+                        if session["question_index"] < len(questions):
+                            response = await get_next_question(session)
+                            await websocket.send_text(json.dumps(response))
+                        else:
+                            await websocket.send_text(json.dumps({
+                                "message": "Survey completed successfully!",
+                                "answers": session["answers"],
+                                "completed": True
+                            }))
+                        continue
+                
+                # Answer is valid, proceed normally
+                session["retry_count"] = 0  # Reset retry count
                 
                 # Suicide risk check for current answer
                 suicide_risk_detected = await detect_suicide_risk(current_answer, key)
                 if suicide_risk_detected:
-                    session["answers"][key] = current_answer
+                    session["answers"][key] = str(current_answer)  # Ensure string
                     session["emergency_triggered"] = True
                     await websocket.send_text(json.dumps(get_emergency_message()))
                     continue
                 
                 # Save current answer
-                session["answers"][key] = current_answer
+                session["answers"][key] = str(current_answer)  # Ensure string
                 
                 # Extract and validate future answers
                 validated_future_answers = await extract_and_validate_multiple_answers(
@@ -547,7 +604,7 @@ async def websocket_endpoint(websocket: WebSocket):
                 if validated_future_answers:
                     # Check extracted answers for suicide risk
                     for future_key, future_answer in validated_future_answers.items():
-                        suicide_risk_in_future = await detect_suicide_risk(future_answer, future_key)
+                        suicide_risk_in_future = await detect_suicide_risk(str(future_answer), future_key)
                         if suicide_risk_in_future:
                             session["emergency_triggered"] = True
                             await websocket.send_text(json.dumps(get_emergency_message()))
@@ -588,5 +645,3 @@ async def websocket_endpoint(websocket: WebSocket):
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
-
-
